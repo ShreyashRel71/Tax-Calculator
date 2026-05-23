@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IMAGECRYPT — Image Encryption Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #00ff88;
+    --accent2: #7c3aed;
+    --accent3: #ff3d71;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 60px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .logo {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    opacity: 0.8;
+  }
+
+  h1 {
+    font-size: clamp(40px, 8vw, 72px);
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+  }
+
+  .subtitle {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 14px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.25s;
+  }
+
+  .tab.active {
+    background: var(--accent2);
+    color: #fff;
+    box-shadow: 0 0 20px rgba(124,58,237,0.4);
+  }
+
+  .tab:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+  /* Panels */
+  .panel { display: none; animation: fadeUp 0.4s ease both; }
+  .panel.active { display: block; }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  /* Drop Zone */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 60px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(0,255,136,0.05) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,255,136,0.04);
+  }
+
+  .drop-zone:hover::before, .drop-zone.drag-over::before { opacity: 1; }
+
+  .drop-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .drop-text {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .drop-sub {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  #fileInput, #encryptedInput { display: none; }
+
+  /* Preview */
+  .preview-wrap {
+    display: none;
+    gap: 20px;
+    align-items: flex-start;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .preview-wrap.show { display: flex; }
+
+  .preview-img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .preview-info { flex: 1; }
+  .preview-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 6px;
+    word-break: break-all;
+  }
+  .preview-size {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Key Display */
+  .key-box {
+    background: var(--surface2);
+    border: 1px solid var(--accent2);
+    border-radius: 10px;
+    padding: 20px 24px;
+    display: none;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 0 30px rgba(124,58,237,0.15);
+  }
+
+  .key-box.show { display: flex; }
+
+  .key-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent2);
+    flex-shrink: 0;
+  }
+
+  .key-value {
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    flex: 1;
+    word-break: break-all;
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .copy-btn.copied { border-color: var(--accent); color: var(--accent); background: rgba(0,255,136,0.1); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 32px;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s;
+    font-weight: 700;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0,255,136,0.4);
+  }
+
+  .btn-primary:disabled {
+    background: var(--border);
+    color: var(--muted);
+    transform: none;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    transform: translateY(-2px);
+  }
+
+  .btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* Input fields */
+  .field-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .text-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    letter-spacing: 2px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .text-input:focus { border-color: var(--accent2); }
+
+  .text-input::placeholder { color: var(--muted); }
+
+  /* Textarea for encrypted content */
+  .encrypted-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    outline: none;
+    resize: vertical;
+    min-height: 120px;
+    transition: border-color 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .encrypted-textarea:focus { border-color: var(--accent2); }
+
+  /* Progress / Status */
+  .status {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+
+  .status.show { display: flex; }
+  .status.success { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); color: var(--accent); }
+  .status.error { background: rgba(255,61,113,0.1); border: 1px solid rgba(255,61,113,0.3); color: var(--accent3); }
+  .status.processing { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #a78bfa; }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(124,58,237,0.3);
+    border-top-color: #a78bfa;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+
+  /* Result area */
+  .result-box {
+    display: none;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .result-box.show { display: block; }
+
+  .result-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .result-preview {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    word-break: break-all;
+    line-height: 1.6;
+    max-height: 80px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .result-preview::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30px;
+    background: linear-gradient(transparent, var(--surface2));
+  }
+
+  /* Decrypted image */
+  .decrypted-img {
+    display: none;
+    width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .decrypted-img.show { display: block; }
+
+  /* Warning */
+  .warning {
+    background: rgba(255,193,7,0.08);
+    border: 1px solid rgba(255,193,7,0.25);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #ffd60a;
+    letter-spacing: 0.5px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .pulse { animation: pulse 1.5s ease infinite; }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 60px;
+    letter-spacing: 2px;
+  }
+
+  .key-mode-btn {
+    padding: 10px 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .key-mode-btn.active {
+    background: rgba(124,58,237,0.2);
+    border-color: var(--accent2);
+    color: #a78bfa;
+  }
+
+  .key-mode-btn:hover:not(.active) { color: var(--text); border-color: var(--muted); }
+
+  @media (max-width: 600px) {
+    .card { padding: 20px; }
+    .preview-wrap { flex-direction: column; }
+    .btn { padding: 14px 20px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">&#x25A6; Image Encryption Tool</div>
+    <h1>IMAGECRYPT</h1>
+    <p class="subtitle">// Encrypt images into text &middot; Decrypt with your key</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('encrypt')">&#x1F512; Encrypt</button>
+    <button class="tab" onclick="switchTab('decrypt')">&#x1F513; Decrypt</button>
+  </div>
+
+  <!-- ENCRYPT PANEL -->
+  <div class="panel active" id="encryptPanel">
+
+    <div class="card">
+      <div class="card-title">01 &mdash; Select Image</div>
+
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <span class="drop-icon">&#x1F5BC;&#xFE0F;</span>
+        <div class="drop-text">Drop image here or click to browse</div>
+        <div class="drop-sub">PNG, JPG, GIF, WEBP, BMP &middot; Max 5MB</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*">
+
+      <div class="preview-wrap" id="previewWrap">
+        <img id="previewImg" class="preview-img" alt="preview">
+        <div class="preview-info">
+          <div class="preview-name" id="previewName"></div>
+          <div class="preview-size" id="previewSize"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">02 &mdash; Encrypt</div>
+
+      <div class="warning">
+        &#9888; Save your decryption key — it will only be shown once and cannot be recovered.
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label class="field-label">Key Mode</label>
+        <div style="display:flex; gap:8px; margin-bottom:16px;">
+          <button class="key-mode-btn active" id="autoKeyBtn" onclick="setKeyMode('auto')">&#x1F504; Auto-generate</button>
+          <button class="key-mode-btn" id="customKeyBtn" onclick="setKeyMode('custom')">&#x270F;&#xFE0F; Custom Key</button>
+        </div>
+        <div id="customKeyWrap" style="display:none;">
+          <label class="field-label" for="customKeyInput">Enter Custom Key (min 6 chars, alphanumeric)</label>
+          <input type="text" id="customKeyInput" class="text-input" placeholder="e.g. MyKey123" maxlength="32" spellcheck="false" autocomplete="off">
+        </div>
+      </div>
+
+      <div id="encryptStatus" class="status"></div>
+
+      <div class="key-box" id="keyBox">
+        <span class="key-label">Key</span>
+        <span class="key-value" id="keyDisplay"></span>
+        <button class="copy-btn" id="copyKeyBtn" onclick="copyKey()">Copy</button>
+      </div>
+
+      <div class="result-box" id="encryptResultBox">
+        <div class="result-label">Encrypted Preview</div>
+        <div class="result-preview" id="encryptPreview"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="encryptBtn" onclick="encryptImage()" disabled>
+          &#x26A1; Encrypt Image
+        </button>
+        <button class="btn btn-secondary" id="downloadEncBtn" onclick="downloadEncrypted()" disabled>
+          &#x2913; Download .txt
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DECRYPT PANEL -->
+  <div class="panel" id="decryptPanel">
+
+    <div class="card">
+      <div class="card-title">01 &mdash; Load Encrypted File</div>
+
+      <div class="drop-zone" id="dropZone2" onclick="document.getElementById('encryptedInput').click()">
+        <span class="drop-icon">&#x1F4C4;</span>
+        <div class="drop-text">Drop .txt file here or click to browse</div>
+        <div class="drop-sub">Encrypted text file only</div>
+      </div>
+      <input type="file" id="encryptedInput" accept=".txt">
+
+      <div id="fileLoadedStatus" class="status" style="margin-top:16px; margin-bottom:0;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">02 &mdash; Enter Decryption Key</div>
+
+      <label class="field-label" for="keyInput">Decryption Key</label>
+      <input type="text" id="keyInput" class="text-input" placeholder="Enter Your Decryption Key" maxlength="64" spellcheck="false" autocomplete="off">
+    </div>
+
+    <div class="card">
+      <div class="card-title">03 &mdash; Decrypt</div>
+
+      <div id="decryptStatus" class="status"></div>
+
+      <img id="decryptedImg" class="decrypted-img" alt="Decrypted image">
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="decryptBtn" onclick="decryptImage()">
+          &#x1F513; Decrypt Image
+        </button>
+        <button class="btn btn-secondary" id="downloadDecBtn" onclick="downloadDecrypted()" disabled>
+          &#x2913; Download Image
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <footer>IMAGECRYPT &mdash; Client-side only &middot; No data leaves your browser</footer>
+</div>
+
+<script>
+  // ===== STATE =====
+  let selectedFile = null;
+  let encryptedData = null;
+  let currentKey = null;
+  let decryptedBlob = null;
+  let encryptedFileContent = null;
+  let keyMode = 'auto';
+
+  // ===== KEY MODE =====
+  function setKeyMode(mode) {
+    keyMode = mode;
+    document.getElementById('autoKeyBtn').classList.toggle('active', mode === 'auto');
+    document.getElementById('customKeyBtn').classList.toggle('active', mode === 'custom');
+    document.getElementById('customKeyWrap').style.display = mode === 'custom' ? 'block' : 'none';
+  }
+
+  // ===== TAB SWITCHING =====
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && tab === 'encrypt') || (i === 1 && tab === 'decrypt'));
+    });
+    document.getElementById('encryptPanel').classList.toggle('active', tab === 'encrypt');
+    document.getElementById('decryptPanel').classList.toggle('active', tab === 'decrypt');
+  }
+
+  // ===== DRAG & DROP =====
+  function setupDrop(zoneId, handler) {
+    const zone = document.getElementById(zoneId);
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      handler(e.dataTransfer.files[0]);
+    });
+  }
+
+  setupDrop('dropZone', handleImageFile);
+  setupDrop('dropZone2', handleEncryptedFile);
+
+  document.getElementById('fileInput').addEventListener('change', e => handleImageFile(e.target.files[0]));
+  document.getElementById('encryptedInput').addEventListener('change', e => handleEncryptedFile(e.target.files[0]));
+
+  // ===== IMAGE SELECTION =====
+  function handleImageFile(file) {
+    if (!file || !file.type.startsWith('image/')) {
+      showStatus('encryptStatus', 'error', '&#x2715; Please select a valid image file.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showStatus('encryptStatus', 'error', '&#x2715; File exceeds 5MB limit.');
+      return;
+    }
+
+    selectedFile = file;
+    const url = URL.createObjectURL(file);
+    document.getElementById('previewImg').src = url;
+    document.getElementById('previewName').textContent = file.name;
+    document.getElementById('previewSize').textContent = formatBytes(file.size);
+    document.getElementById('previewWrap').classList.add('show');
+    document.getElementById('encryptBtn').disabled = false;
+
+    // Reset outputs
+    encryptedData = null;
+    currentKey = null;
+    document.getElementById('keyBox').classList.remove('show');
+    document.getElementById('encryptResultBox').classList.remove('show');
+    document.getElementById('downloadEncBtn').disabled = true;
+    hideStatus('encryptStatus');
+  }
+
+  // ===== ENCRYPTED FILE LOAD =====
+  function handleEncryptedFile(file) {
+    if (!file || !file.name.endsWith('.txt')) {
+      showStatus('fileLoadedStatus', 'error', '&#x2715; Please select a valid .txt encrypted file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      encryptedFileContent = e.target.result;
+      showStatus('fileLoadedStatus', 'success', '&#x2713; File loaded: ' + file.name);
+    };
+    reader.readAsText(file);
+  }
+
+  // ===== KEY GENERATION =====
+  function generateKey(length = 12) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const arr = new Uint8Array(length);
+    crypto.getRandomValues(arr);
+    return Array.from(arr).map(b => chars[b % chars.length]).join('');
+  }
+
+  // ===== XOR ENCRYPTION =====
+  // Derives a keystream from the key using a simple seeded approach
+  function deriveKeystream(key, length) {
+    const stream = new Uint8Array(length);
+    const keyBytes = new TextEncoder().encode(key);
+    let hash = 0;
+    for (let i = 0; i < keyBytes.length; i++) hash = (hash * 31 + keyBytes[i]) >>> 0;
+
+    // LFSR-style expansion
+    let state = hash || 0x12345678;
+    for (let i = 0; i < length; i++) {
+      state ^= state << 13;
+      state ^= state >> 17;
+      state ^= state << 5;
+      stream[i] = state & 0xff;
+    }
+    return stream;
+  }
+
+  function xorData(data, key) {
+    const keystream = deriveKeystream(key, data.length);
+    const result = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) result[i] = data[i] ^ keystream[i];
+    return result;
+  }
+
+  // ===== ENCRYPT IMAGE =====
+  function encryptImage() {
+    if (!selectedFile) return;
+
+    // Validate custom key if needed
+    if (keyMode === 'custom') {
+      const customKey = document.getElementById('customKeyInput').value.trim();
+      if (customKey.length < 6) {
+        showStatus('encryptStatus', 'error', '&#x2715; Custom key must be at least 6 characters.');
+        return;
+      }
+      if (!/^[a-zA-Z0-9]+$/.test(customKey)) {
+        showStatus('encryptStatus', 'error', '&#x2715; Key must be alphanumeric only (A-Z, a-z, 0-9).');
+        return;
+      }
+    }
+
+    showStatus('encryptStatus', 'processing', '<div class="spinner"></div> Reading and encrypting image...');
+    document.getElementById('encryptBtn').disabled = true;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      setTimeout(() => {
+        try {
+          const arrayBuffer = e.target.result;
+          const imageBytes = new Uint8Array(arrayBuffer);
+
+          // Determine key
+          const key = keyMode === 'custom'
+            ? document.getElementById('customKeyInput').value.trim()
+            : generateKey(12);
+          currentKey = key;
+
+          // XOR encrypt
+          const encrypted = xorData(imageBytes, key);
+
+          // Build output: header + base64 of encrypted bytes
+          const header = `IMAGECRYPT_V1|${selectedFile.name}|${selectedFile.type}|${imageBytes.length}\n`;
+          const encB64 = uint8ToBase64(encrypted);
+          const fullText = header + encB64;
+
+          encryptedData = fullText;
+
+          // Show key
+          document.getElementById('keyDisplay').textContent = key;
+          document.getElementById('keyBox').classList.add('show');
+
+          // Show preview
+          document.getElementById('encryptPreview').textContent = encB64.substring(0, 200) + '...';
+          document.getElementById('encryptResultBox').classList.add('show');
+
+          showStatus('encryptStatus', 'success', '&#x2713; Encrypted successfully! Save your key and download the file.');
+          document.getElementById('downloadEncBtn').disabled = false;
+          document.getElementById('encryptBtn').disabled = false;
+        } catch (err) {
+          showStatus('encryptStatus', 'error', '&#x2715; Encryption failed: ' + err.message);
+          document.getElementById('encryptBtn').disabled = false;
+        }
+      }, 400);
+    };
+    reader.readAsArrayBuffer(selectedFile);
+  }
+
+  // ===== DECRYPT IMAGE =====
+  function decryptImage() {
+    const key = document.getElementById('keyInput').value.trim();
+
+    if (!encryptedFileContent) {
+      showStatus('decryptStatus', 'error', '&#x2715; Please load an encrypted .txt file first.');
+      return;
+    }
+    if (!key) {
+      showStatus('decryptStatus', 'error', '&#x2715; Please enter your decryption key.');
+      return;
+    }
+
+    showStatus('decryptStatus', 'processing', '<div class="spinner"></div> Decrypting...');
+    document.getElementById('decryptBtn').disabled = true;
+
+    setTimeout(() => {
+      try {
+        const lines = encryptedFileContent.split('\n');
+        if (lines.length < 2) throw new Error('Invalid file format.');
+
+        const headerParts = lines[0].split('|');
+        if (headerParts[0] !== 'IMAGECRYPT_V1' && headerParts[0] !== 'IMCRYPT_V1') throw new Error('Not a valid IMAGECRYPT file.');
+
+        const fileName = headerParts[1];
+        const mimeType = headerParts[2];
+        const originalLength = parseInt(headerParts[3]);
+
+        const encB64 = lines.slice(1).join('');
+        const encBytes = base64ToUint8(encB64);
+
+        // XOR decrypt (same operation)
+        const decrypted = xorData(encBytes, key);
+
+        if (decrypted.length !== originalLength) throw new Error('Key may be incorrect — size mismatch.');
+
+        // Create blob and display
+        const blob = new Blob([decrypted], { type: mimeType });
+        decryptedBlob = { blob, fileName, mimeType };
+
+        const url = URL.createObjectURL(blob);
+        const img = document.getElementById('decryptedImg');
+        img.src = url;
+        img.classList.add('show');
+
+        img.onerror = () => {
+          img.classList.remove('show');
+          showStatus('decryptStatus', 'error', '&#x2715; Decryption failed — wrong key or corrupted file.');
+          document.getElementById('decryptBtn').disabled = false;
+        };
+
+        img.onload = () => {
+          showStatus('decryptStatus', 'success', '&#x2713; Image decrypted successfully!');
+          document.getElementById('downloadDecBtn').disabled = false;
+          document.getElementById('decryptBtn').disabled = false;
+        };
+
+      } catch (err) {
+        showStatus('decryptStatus', 'error', '&#x2715; ' + err.message);
+        document.getElementById('decryptBtn').disabled = false;
+      }
+    }, 400);
+  }
+
+  // ===== DOWNLOADS =====
+  function downloadEncrypted() {
+    if (!encryptedData) return;
+    const blob = new Blob([encryptedData], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const baseName = selectedFile.name.replace(/\.[^.]+$/, '');
+    a.download = `${baseName}_encrypted.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function downloadDecrypted() {
+    if (!decryptedBlob) return;
+    const url = URL.createObjectURL(decryptedBlob.blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'decrypted_' + decryptedBlob.fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ===== COPY KEY =====
+  function copyKey() {
+    if (!currentKey) return;
+    navigator.clipboard.writeText(currentKey).then(() => {
+      const btn = document.getElementById('copyKeyBtn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // ===== HELPERS =====
+  function showStatus(id, type, html) {
+    const el = document.getElementById(id);
+    el.className = `status ${type} show`;
+    el.innerHTML = html;
+  }
+
+  function hideStatus(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function uint8ToBase64(uint8) {
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8.length; i += chunkSize) {
+      const chunk = uint8.subarray(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
+  }
+
+  function base64ToUint8(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  }
+</script>
+</body>
+</html>
